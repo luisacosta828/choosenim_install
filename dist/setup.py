@@ -9,7 +9,6 @@ contexto = ssl.create_default_context()
 contexto.check_hostname = False
 contexto.verify_mode = ssl.CERT_NONE # Ignore SSL Errors and Warnings if any.
 
-
 def which(cmd, mode = os.F_OK | os.X_OK, path = None):
   # shutil.which is Python 3.3+ only.
   def _access_check(fn, mode):
@@ -54,6 +53,7 @@ def prepare_folders():
     folders2create.append(os.path.join("/usr", "bin", ".nimble"))
     folders2create.append(os.path.join("/usr", "lib", "nim"))
     folders2create.append(os.path.join("/usr", "lib", "nim", "lib"))
+    folders2create.append(os.path.join("/etc","nim"))
 
   for folder in folders2create:
     if not os.path.exists(folder):  # Older Python do not have exists_ok
@@ -67,7 +67,6 @@ def download(url, path):
   with urllib.request.urlopen(url, context=contexto) as response:
     with open(path, 'wb') as outfile:
       shutil.copyfileobj(response, outfile)
-
 
 def get_link():
   arch = 32 if not platform.machine().endswith("64") else 64  # https://stackoverflow.com/a/12578715
@@ -84,7 +83,6 @@ def get_link():
   assert result is not None, "Operating system or hardware architecture not supported or download not available or unkown network error."
   return result
 
-
 def copy_folders(src, dst):
   try:
     shutil.copytree(src, dst)
@@ -92,7 +90,6 @@ def copy_folders(src, dst):
     print("ER\tFailed to copy folder: " + src + " into " + dst)
   else:
     print("OK\tCopying: " + src + " into " + dst)
-
 
 def backup_nim_version(src):
   #Backup the current version
@@ -110,7 +107,6 @@ def backup_nim_version(src):
 
   os.rename(bsrc, dest)
   os.chmod(dest, 0o775)
-
 
 def nim_setup():
   # Basically this does the same as choosenim, but in pure Python,
@@ -150,6 +146,10 @@ def nim_setup():
     #shutil.copyfile(os.path.join(home, ".choosenim", "toolchains", "nim-#devel", "bin", "nimble" + ext), os.path.join(home, "nimble" + ext))
     shutil.copyfile(os.path.join(home, ".nimble", "bin", "nim" + ext), os.path.join(home, "nim" + ext))
     shutil.copyfile(os.path.join(home, ".nimble", "bin", "nimble" + ext), os.path.join(home, "nimble" + ext))
+
+    os.chmod(os.path.join("/etc", "nim"), 0o775)
+    for config in os.listdir(os.path.join(home, ".nimble", "config")):
+      shutil.copyfile(os.path.join(home, ".nimble", "config",config),os.path.join("/etc", "nim",config))
 
     backup_nim_version(os.path.join("/usr", "bin", ".nimble_backup"))
     backup_nim_version(os.path.join("/usr", "lib", "nim_backup"))
@@ -207,7 +207,6 @@ def add_to_path(filename):
   finally:
     # source ".bashrc" updates the PATH without restarting the terminal.   
     os.system("bash -c 'source " + filename + "'")
-
 
 def run_finishexe():
   # Just for setting required directories in front of %PATH% environment variable
@@ -271,6 +270,9 @@ def nimble_setup():
   if nim_ok + nimble_ok == 0:
     result = install_nimble_packages(nimble_exe, nim_exe) if "GITHUB_ACTIONS" in os.environ else install_nimble_packages(nimble_exe)
 
+  if not sys.platform.startswith("win"):
+    copy_folders(os.path.join(home, ".nimble", "pkgs"), os.path.join("/usr", "bin", ".nimble", "pkgs"))
+
   return result == 3
 
   #nimble_exe = os.path.join(home, "nimble" + ext)
@@ -326,7 +328,6 @@ def postinstall():
   shutil.rmtree(os.path.join(home, ".choosenim", "toolchains", "nim-#devel", "tools", "atlas", "tests"), ignore_errors=True)
   shutil.rmtree(os.path.join(home, ".choosenim", "toolchains", "nim-#devel", "dist", "nimble", "tests"), ignore_errors=True)
 
-
 class X(install):
 
   def run(self):
@@ -339,6 +340,7 @@ class X(install):
         add_to_path(".bash_profile")
         add_to_path(".zshrc")
         add_to_path(".zshenv")
+#        add_to_path("/etc/profile") ?????
       else:  # Windows
         run_finishexe()
       if not nimble_setup():                       # Update Nimble.
