@@ -59,5 +59,6 @@ jobs:
     - name: After-Install Nimble libs PATH Test
       shell: bash
       run: |
+        nimble install cpython
         echo "import cpython/math" > temp.nim
         nim c temp.nim
